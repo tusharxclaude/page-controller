@@ -74,3 +74,31 @@ describe('generatePageUrl — leading zeros', () => {
     expect(newUrl).toBe('https://example.com/posts?page=3');
   });
 });
+
+describe('detectPagination — simpleNumber blocklist', () => {
+  const blocklisted: [string, string][] = [
+    ['Gmail user 0', 'https://mail.google.com/mail/u/0/#inbox'],
+    ['Gmail user 1', 'https://mail.google.com/mail/u/1/'],
+    ['GitHub issue', 'https://github.com/user/repo/issues/123'],
+    ['GitHub PR', 'https://github.com/user/repo/pull/456'],
+    ['Twitter status', 'https://twitter.com/i/status/1234567890'],
+    ['Discord channel', 'https://discord.com/channels/123456/789012'],
+    ['user profile', 'https://example.com/users/42'],
+    ['order detail', 'https://example.com/orders/99'],
+  ];
+
+  it.each(blocklisted)('does NOT detect %s as pagination', (_label, url) => {
+    expect(detectPagination(url)).toBeNull();
+  });
+
+  it('DOES detect a plain numeric path end', () => {
+    const result = detectPagination('https://example.com/posts/5');
+    expect(result?.currentPage).toBe(5);
+    expect(result?.pattern.type).toBe('simpleNumber');
+  });
+
+  it('DOES detect numeric path when preceded by non-blocklisted segment', () => {
+    const result = detectPagination('https://example.com/archive/3');
+    expect(result?.currentPage).toBe(3);
+  });
+});

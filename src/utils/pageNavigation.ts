@@ -28,6 +28,36 @@ const PAGINATION_PATTERNS = [
   },
 ];
 
+/**
+ * Path segments that precede numeric IDs which are NOT page numbers.
+ * When the simpleNumber pattern matches and the path segment immediately
+ * before the number is in this set, the match is discarded.
+ */
+const SIMPLE_NUMBER_BLOCKLIST = new Set([
+  'u', // Gmail /u/0
+  'i', // Twitter /i/status
+  'status', // Tweet IDs
+  'issues', // GitHub issues
+  'pull', // GitHub PRs
+  'dp', // Amazon product IDs
+  'channels', // Discord
+  'track', // Shipment tracking
+  'user', // Generic user IDs
+  'users',
+  'order', // E-commerce orders
+  'orders',
+  'comment', // Comment IDs
+  'comments',
+  'message', // Message IDs
+  'messages',
+  'thread', // Thread IDs
+  'threads',
+  'attachment',
+  'download',
+  'file',
+  'files',
+]);
+
 export interface PaginationInfo {
   currentPage: number;
   pattern: (typeof PAGINATION_PATTERNS)[number];
@@ -66,6 +96,18 @@ export function detectPagination(url: string): PaginationInfo | null {
       if (found !== null) return found;
       const match = url.match(pattern.regex);
       if (!match) return null;
+      // For simpleNumber, skip known non-pagination path segments
+      if (pattern.type === 'simpleNumber' && match.index !== undefined) {
+        const before = url.substring(0, match.index);
+        const prevSegment = before.split('/').filter(Boolean).pop() ?? '';
+        if (SIMPLE_NUMBER_BLOCKLIST.has(prevSegment.toLowerCase())) {
+          return null;
+        }
+        // Also skip if the preceding segment itself is purely numeric (e.g. Discord /channels/123456/789012)
+        if (/^\d+$/.test(prevSegment)) {
+          return null;
+        }
+      }
       const currentPage = computeCurrentPage(pattern, match);
       if (currentPage === null || Number.isNaN(currentPage) || currentPage < 1)
         return null;
