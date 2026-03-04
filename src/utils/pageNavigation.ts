@@ -56,6 +56,8 @@ const SIMPLE_NUMBER_BLOCKLIST = new Set([
   'download',
   'file',
   'files',
+  'itm', // eBay item IDs
+  'item',
 ]);
 
 export interface PaginationInfo {

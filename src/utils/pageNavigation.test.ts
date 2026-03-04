@@ -95,6 +95,8 @@ describe('detectPagination — simpleNumber blocklist', () => {
       'JoyBuy product ID',
       'https://www.joybuy.co.uk/dp/yeelight-screen-light-bar-pro-libra/10496164?utm_source=affiliate',
     ],
+    ['eBay item', 'https://www.ebay.co.uk/itm/236547961046?var=0&mkevt=1'],
+    ['eBay item (plain)', 'https://www.ebay.com/itm/123456789'],
   ];
 
   it.each(blocklisted)('does NOT detect %s as pagination', (_label, url) => {
