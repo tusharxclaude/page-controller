@@ -179,36 +179,6 @@ export function generatePageUrl(
   }
 }
 
-/**
- * Navigate to the next page
- * @param url Current URL
- * @returns New URL for next page, or null if pagination not detected
- */
-export function getNextPageUrl(url: string): string | null {
-  const pagination = detectPagination(url);
-  if (!pagination) return null;
-
-  const nextPage = pagination.currentPage + 1;
-  return generatePageUrl(url, pagination, nextPage);
-}
-
-/**
- * Navigate to the previous page
- * @param url Current URL
- * @returns New URL for previous page, or null if pagination not detected or already on page 1
- */
-export function getPrevPageUrl(url: string): string | null {
-  const pagination = detectPagination(url);
-  if (!pagination) return null;
-
-  // Don't go below page 1 (or 0 for simpleNumber since some sites use 0-indexed)
-  const minPage = 1;
-  if (pagination.currentPage <= minPage) return null;
-
-  const prevPage = pagination.currentPage - 1;
-  return generatePageUrl(url, pagination, prevPage);
-}
-
 export interface PageNavigationInfo {
   detected: boolean;
   currentPage: number | null;
@@ -295,41 +265,6 @@ export function getPageNavigation(
     canGoPrev: pagination.currentPage > 1,
     nextUrl,
     prevUrl,
-    patternType: pagination.pattern.type,
-  };
-}
-
-/**
- * Get current page information
- * @param url Current URL
- * @returns Object with current page number and navigation availability
- */
-export function getPageInfo(url: string): {
-  detected: boolean;
-  currentPage: number | null;
-  canGoNext: boolean;
-  canGoPrev: boolean;
-  patternType: string | null;
-} {
-  const pagination = detectPagination(url);
-
-  if (!pagination) {
-    return {
-      detected: false,
-      currentPage: null,
-      canGoNext: false,
-      canGoPrev: false,
-      patternType: null,
-    };
-  }
-
-  const minPage = 1;
-
-  return {
-    detected: true,
-    currentPage: pagination.currentPage,
-    canGoNext: true,
-    canGoPrev: pagination.currentPage > minPage,
     patternType: pagination.pattern.type,
   };
 }
