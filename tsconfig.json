@@ -23,9 +23,9 @@
     "strictNullChecks": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
-    "noFallthroughCasesInSwitch": true
+    "noFallthroughCasesInSwitch": true,
+    "types": ["chrome", "node", "vitest/globals"]
   },
   "include": ["src/**/*.ts", "src/**/*.tsx", "vite.config.ts"],
-  "exclude": ["node_modules", "dist", ".husky", ".cursor"],
-  "types": ["chrome", "node", "vitest/globals"]
+  "exclude": ["node_modules", "dist", ".husky", ".cursor"]
 }
