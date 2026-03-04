@@ -1,6 +1,4 @@
 /// <reference types="vitest" />
-/* eslint-disable @typescript-eslint/no-explicit-any */
-/* eslint-disable no-param-reassign */
 import fs from 'fs';
 import path, { resolve } from 'path';
 import { crx, ManifestV3Export } from '@crxjs/vite-plugin';
@@ -108,6 +106,6 @@ export default defineConfig(({ mode }) => ({
   test: {
     environment: 'jsdom',
     globals: true,
-    include: ['src/**/*.test.ts'],
+    include: ['src/**/*.{test,spec}.{ts,tsx}'],
   },
 }));
