@@ -209,6 +209,96 @@ export function getPrevPageUrl(url: string): string | null {
   return generatePageUrl(url, pagination, prevPage);
 }
 
+export interface PageNavigationInfo {
+  detected: boolean;
+  currentPage: number | null;
+  canGoNext: boolean;
+  canGoPrev: boolean;
+  nextUrl: string | null;
+  prevUrl: string | null;
+  patternType: 'link-rel' | 'query' | 'path' | 'offset' | 'simpleNumber' | null;
+}
+
+function detectLinkRelPagination(
+  doc: Document
+): { nextUrl: string | null; prevUrl: string | null } | null {
+  const nextLink = doc.querySelector(
+    'link[rel="next"]'
+  ) as HTMLLinkElement | null;
+  const prevLink = doc.querySelector(
+    'link[rel="prev"], link[rel="previous"]'
+  ) as HTMLLinkElement | null;
+
+  if (!nextLink && !prevLink) return null;
+
+  return {
+    nextUrl: nextLink ? nextLink.getAttribute('href') : null,
+    prevUrl: prevLink ? prevLink.getAttribute('href') : null,
+  };
+}
+
+/**
+ * Primary entry point for pagination detection.
+ *
+ * When `doc` is provided (content script context), checks for
+ * <link rel="next"> / <link rel="prev"> first — the most reliable signal.
+ * Falls back to URL pattern matching when link-rel is absent.
+ *
+ * When `doc` is omitted (background script context), uses URL patterns only.
+ */
+export function getPageNavigation(
+  url: string,
+  doc?: Document
+): PageNavigationInfo {
+  const notDetected: PageNavigationInfo = {
+    detected: false,
+    currentPage: null,
+    canGoNext: false,
+    canGoPrev: false,
+    nextUrl: null,
+    prevUrl: null,
+    patternType: null,
+  };
+
+  // 1. Link-rel detection (most reliable, requires DOM)
+  if (doc) {
+    const linkRel = detectLinkRelPagination(doc);
+    if (linkRel) {
+      // Try URL patterns to surface current page number for the badge display
+      const urlPagination = detectPagination(url);
+      return {
+        detected: true,
+        currentPage: urlPagination?.currentPage ?? null,
+        canGoNext: linkRel.nextUrl !== null,
+        canGoPrev: linkRel.prevUrl !== null,
+        nextUrl: linkRel.nextUrl,
+        prevUrl: linkRel.prevUrl,
+        patternType: 'link-rel',
+      };
+    }
+  }
+
+  // 2. URL pattern fallback
+  const pagination = detectPagination(url);
+  if (!pagination) return notDetected;
+
+  const nextUrl = generatePageUrl(url, pagination, pagination.currentPage + 1);
+  const prevUrl =
+    pagination.currentPage > 1
+      ? generatePageUrl(url, pagination, pagination.currentPage - 1)
+      : null;
+
+  return {
+    detected: true,
+    currentPage: pagination.currentPage,
+    canGoNext: true, // unknown without DOM — best-effort assumption
+    canGoPrev: pagination.currentPage > 1,
+    nextUrl,
+    prevUrl,
+    patternType: pagination.pattern.type,
+  };
+}
+
 /**
  * Get current page information
  * @param url Current URL

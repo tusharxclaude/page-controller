@@ -1,6 +1,11 @@
+import { JSDOM } from 'jsdom';
 import { describe, expect, it } from 'vitest';
 
-import { detectPagination, generatePageUrl } from './pageNavigation';
+import {
+  detectPagination,
+  generatePageUrl,
+  getPageNavigation,
+} from './pageNavigation';
 
 describe('detectPagination — page 0 rejection', () => {
   it('rejects page 0 in path pattern', () => {
@@ -100,5 +105,74 @@ describe('detectPagination — simpleNumber blocklist', () => {
   it('DOES detect numeric path when preceded by non-blocklisted segment', () => {
     const result = detectPagination('https://example.com/archive/3');
     expect(result?.currentPage).toBe(3);
+  });
+});
+
+function makeDoc(html: string): Document {
+  return new JSDOM(html).window.document;
+}
+
+describe('getPageNavigation — link rel detection', () => {
+  it('detects next from <link rel="next">', () => {
+    const doc = makeDoc(
+      '<html><head><link rel="next" href="https://example.com/page/3"></head></html>'
+    );
+    const result = getPageNavigation('https://example.com/page/2', doc);
+    expect(result.detected).toBe(true);
+    expect(result.canGoNext).toBe(true);
+    expect(result.nextUrl).toBe('https://example.com/page/3');
+    expect(result.patternType).toBe('link-rel');
+  });
+
+  it('detects prev from <link rel="prev">', () => {
+    const doc = makeDoc(
+      '<html><head><link rel="prev" href="https://example.com/page/1"></head></html>'
+    );
+    const result = getPageNavigation('https://example.com/page/2', doc);
+    expect(result.canGoPrev).toBe(true);
+    expect(result.prevUrl).toBe('https://example.com/page/1');
+  });
+
+  it('sets canGoNext=false when no <link rel="next"> exists', () => {
+    const doc = makeDoc(
+      '<html><head><link rel="prev" href="https://example.com/page/1"></head></html>'
+    );
+    const result = getPageNavigation('https://example.com/page/2', doc);
+    expect(result.canGoNext).toBe(false);
+    expect(result.nextUrl).toBeNull();
+  });
+
+  it('falls back to URL patterns when no link rel found', () => {
+    const doc = makeDoc('<html><head></head></html>');
+    const result = getPageNavigation('https://example.com/page/2/', doc);
+    expect(result.detected).toBe(true);
+    expect(result.patternType).toBe('path');
+    expect(result.currentPage).toBe(2);
+  });
+
+  it('returns not-detected for Gmail URL even with empty document', () => {
+    const doc = makeDoc('<html><head></head></html>');
+    const result = getPageNavigation(
+      'https://mail.google.com/mail/u/0/#inbox',
+      doc
+    );
+    expect(result.detected).toBe(false);
+  });
+
+  it('works without document (URL-only mode)', () => {
+    const result = getPageNavigation('https://example.com/articles?page=3');
+    expect(result.detected).toBe(true);
+    expect(result.currentPage).toBe(3);
+    expect(result.nextUrl).toBe('https://example.com/articles?page=4');
+    expect(result.prevUrl).toBe('https://example.com/articles?page=2');
+  });
+
+  it('also supports rel="previous" as alias', () => {
+    const doc = makeDoc(
+      '<html><head><link rel="previous" href="https://example.com/page/1"></head></html>'
+    );
+    const result = getPageNavigation('https://example.com/page/2', doc);
+    expect(result.canGoPrev).toBe(true);
+    expect(result.prevUrl).toBe('https://example.com/page/1');
   });
 });
