@@ -99,12 +99,19 @@ export function detectPagination(url: string): PaginationInfo | null {
       // For simpleNumber, skip known non-pagination path segments
       if (pattern.type === 'simpleNumber' && match.index !== undefined) {
         const before = url.substring(0, match.index);
-        const prevSegment = before.split('/').filter(Boolean).pop() ?? '';
-        if (SIMPLE_NUMBER_BLOCKLIST.has(prevSegment.toLowerCase())) {
+        const pathSegments = before.split('/').filter(Boolean);
+        const immediateParent = pathSegments[pathSegments.length - 1] ?? '';
+        const grandparent = pathSegments[pathSegments.length - 2] ?? '';
+        // Check immediate parent and one level up — handles patterns like
+        // /dp/product-slug/product-id where the blocklisted segment (dp) is 2 levels back
+        if (
+          SIMPLE_NUMBER_BLOCKLIST.has(immediateParent.toLowerCase()) ||
+          SIMPLE_NUMBER_BLOCKLIST.has(grandparent.toLowerCase())
+        ) {
           return null;
         }
-        // Also skip if the preceding segment itself is purely numeric (e.g. Discord /channels/123456/789012)
-        if (/^\d+$/.test(prevSegment)) {
+        // Also skip if the immediate preceding segment is purely numeric (e.g. Discord /channels/123456/789012)
+        if (/^\d+$/.test(immediateParent)) {
           return null;
         }
       }

@@ -90,6 +90,11 @@ describe('detectPagination — simpleNumber blocklist', () => {
     ['Discord channel', 'https://discord.com/channels/123456/789012'],
     ['user profile', 'https://example.com/users/42'],
     ['order detail', 'https://example.com/orders/99'],
+    // blocklisted segment 2 levels back (dp -> product-slug -> product-id)
+    [
+      'JoyBuy product ID',
+      'https://www.joybuy.co.uk/dp/yeelight-screen-light-bar-pro-libra/10496164?utm_source=affiliate',
+    ],
   ];
 
   it.each(blocklisted)('does NOT detect %s as pagination', (_label, url) => {
