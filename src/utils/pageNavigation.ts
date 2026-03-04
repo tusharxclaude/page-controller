@@ -193,7 +193,14 @@ export interface PageNavigationInfo {
   canGoPrev: boolean;
   nextUrl: string | null;
   prevUrl: string | null;
-  patternType: 'link-rel' | 'query' | 'path' | 'offset' | 'simpleNumber' | null;
+  patternType:
+    | 'link-rel'
+    | 'dom'
+    | 'query'
+    | 'path'
+    | 'offset'
+    | 'simpleNumber'
+    | null;
 }
 
 function detectLinkRelPagination(
@@ -215,11 +222,67 @@ function detectLinkRelPagination(
 }
 
 /**
+ * Detects pagination via DOM signals:
+ * 1. <a rel="next"> / <a rel="prev"> anchor tags in the body
+ * 2. An element with aria-label containing "pagination" or "page navigation",
+ *    with inner anchors labelled next / prev
+ */
+function detectDomPagination(
+  doc: Document
+): { nextUrl: string | null; prevUrl: string | null } | null {
+  // 1. Anchor rel attributes
+  const nextAnchor = doc.querySelector(
+    'a[rel="next"]'
+  ) as HTMLAnchorElement | null;
+  const prevAnchor = doc.querySelector(
+    'a[rel="prev"], a[rel="previous"]'
+  ) as HTMLAnchorElement | null;
+
+  if (nextAnchor || prevAnchor) {
+    return {
+      nextUrl: nextAnchor ? nextAnchor.getAttribute('href') : null,
+      prevUrl: prevAnchor ? prevAnchor.getAttribute('href') : null,
+    };
+  }
+
+  // 2. ARIA pagination container: aria-label contains "paginat" or
+  //    both "page" and "nav" (covers "Page navigation", "Pagination navigation")
+  const paginationNav = Array.from(doc.querySelectorAll('[aria-label]')).find(
+    (el) => {
+      const label = (el.getAttribute('aria-label') ?? '').toLowerCase();
+      return (
+        label.includes('paginat') ||
+        (label.includes('page') && label.includes('nav'))
+      );
+    }
+  );
+
+  if (paginationNav) {
+    const nextLink = paginationNav.querySelector(
+      'a[aria-label*="next" i]'
+    ) as HTMLAnchorElement | null;
+    const prevLink = paginationNav.querySelector(
+      'a[aria-label*="prev" i]'
+    ) as HTMLAnchorElement | null;
+
+    if (nextLink || prevLink) {
+      return {
+        nextUrl: nextLink ? nextLink.getAttribute('href') : null,
+        prevUrl: prevLink ? prevLink.getAttribute('href') : null,
+      };
+    }
+  }
+
+  return null;
+}
+
+/**
  * Primary entry point for pagination detection.
  *
- * When `doc` is provided (content script context), checks for
- * <link rel="next"> / <link rel="prev"> first — the most reliable signal.
- * Falls back to URL pattern matching when link-rel is absent.
+ * When `doc` is provided (content script context), checks in order:
+ *   1. <link rel="next"> / <link rel="prev"> in <head> — most reliable
+ *   2. <a rel="next"> / <a rel="prev"> in body, or ARIA pagination nav
+ *   3. URL pattern matching as final fallback
  *
  * When `doc` is omitted (background script context), uses URL patterns only.
  */
@@ -237,11 +300,10 @@ export function getPageNavigation(
     patternType: null,
   };
 
-  // 1. Link-rel detection (most reliable, requires DOM)
   if (doc) {
+    // 1. <link rel> in <head> (most reliable)
     const linkRel = detectLinkRelPagination(doc);
     if (linkRel) {
-      // Try URL patterns to surface current page number for the badge display
       const urlPagination = detectPagination(url);
       return {
         detected: true,
@@ -253,9 +315,24 @@ export function getPageNavigation(
         patternType: 'link-rel',
       };
     }
+
+    // 2. <a rel> in body or ARIA pagination nav
+    const domPagination = detectDomPagination(doc);
+    if (domPagination) {
+      const urlPagination = detectPagination(url);
+      return {
+        detected: true,
+        currentPage: urlPagination?.currentPage ?? null,
+        canGoNext: domPagination.nextUrl !== null,
+        canGoPrev: domPagination.prevUrl !== null,
+        nextUrl: domPagination.nextUrl,
+        prevUrl: domPagination.prevUrl,
+        patternType: 'dom',
+      };
+    }
   }
 
-  // 2. URL pattern fallback
+  // 3. URL pattern fallback
   const pagination = detectPagination(url);
   if (!pagination) return notDetected;
 

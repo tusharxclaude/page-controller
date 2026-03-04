@@ -117,6 +117,111 @@ function makeDoc(html: string): Document {
   return new JSDOM(html).window.document;
 }
 
+describe('getPageNavigation — a[rel] DOM detection', () => {
+  it('detects next from <a rel="next"> in body', () => {
+    const doc = makeDoc(
+      '<html><body><a rel="next" href="https://example.com/page/3">Next</a></body></html>'
+    );
+    const result = getPageNavigation('https://example.com/page/2', doc);
+    expect(result.detected).toBe(true);
+    expect(result.canGoNext).toBe(true);
+    expect(result.nextUrl).toBe('https://example.com/page/3');
+    expect(result.patternType).toBe('dom');
+  });
+
+  it('detects prev from <a rel="prev"> in body', () => {
+    const doc = makeDoc(
+      '<html><body><a rel="prev" href="https://example.com/page/1">Prev</a></body></html>'
+    );
+    const result = getPageNavigation('https://example.com/page/2', doc);
+    expect(result.detected).toBe(true);
+    expect(result.canGoPrev).toBe(true);
+    expect(result.prevUrl).toBe('https://example.com/page/1');
+    expect(result.patternType).toBe('dom');
+  });
+
+  it('supports rel="previous" alias on anchor', () => {
+    const doc = makeDoc(
+      '<html><body><a rel="previous" href="https://example.com/page/1">Prev</a></body></html>'
+    );
+    const result = getPageNavigation('https://example.com/page/2', doc);
+    expect(result.canGoPrev).toBe(true);
+    expect(result.prevUrl).toBe('https://example.com/page/1');
+  });
+
+  it('link-rel in head takes priority over a[rel] in body', () => {
+    const doc = makeDoc(
+      '<html><head><link rel="next" href="https://example.com/page/3-head"></head>' +
+        '<body><a rel="next" href="https://example.com/page/3-body">Next</a></body></html>'
+    );
+    const result = getPageNavigation('https://example.com/page/2', doc);
+    expect(result.nextUrl).toBe('https://example.com/page/3-head');
+    expect(result.patternType).toBe('link-rel');
+  });
+});
+
+describe('getPageNavigation — ARIA pagination detection', () => {
+  it('finds next link inside aria-label="pagination" nav', () => {
+    const doc = makeDoc(
+      '<html><body>' +
+        '<nav aria-label="pagination">' +
+        '  <a href="/page/1">1</a>' +
+        '  <a href="/page/2" aria-current="page">2</a>' +
+        '  <a href="/page/3" aria-label="Next page">Next</a>' +
+        '</nav>' +
+        '</body></html>'
+    );
+    const result = getPageNavigation('https://example.com/page/2', doc);
+    expect(result.detected).toBe(true);
+    expect(result.canGoNext).toBe(true);
+    expect(result.nextUrl).toBe('/page/3');
+    expect(result.patternType).toBe('dom');
+  });
+
+  it('finds prev link inside aria-label="pagination" nav', () => {
+    const doc = makeDoc(
+      '<html><body>' +
+        '<nav aria-label="pagination">' +
+        '  <a href="/page/1" aria-label="Previous page">Prev</a>' +
+        '  <a href="/page/2" aria-current="page">2</a>' +
+        '</nav>' +
+        '</body></html>'
+    );
+    const result = getPageNavigation('https://example.com/page/2', doc);
+    expect(result.canGoPrev).toBe(true);
+    expect(result.prevUrl).toBe('/page/1');
+  });
+
+  it('matches aria-label case-insensitively (Pagination, PAGINATION)', () => {
+    const doc = makeDoc(
+      '<html><body>' +
+        '<nav aria-label="Page Navigation">' +
+        '  <a href="/page/3" aria-label="Next">Next</a>' +
+        '</nav>' +
+        '</body></html>'
+    );
+    const result = getPageNavigation('https://example.com/page/2', doc);
+    expect(result.detected).toBe(true);
+    expect(result.nextUrl).toBe('/page/3');
+  });
+
+  it('returns not-detected when ARIA nav has no next/prev links', () => {
+    const doc = makeDoc(
+      '<html><body>' +
+        '<nav aria-label="pagination">' +
+        '  <a href="/page/1">1</a>' +
+        '  <a href="/page/2">2</a>' +
+        '</nav>' +
+        '</body></html>'
+    );
+    // No next/prev aria-labels — should fall through to URL patterns
+    const result = getPageNavigation('https://example.com/page/2/', doc);
+    // URL pattern should pick it up as fallback
+    expect(result.detected).toBe(true);
+    expect(result.patternType).toBe('path');
+  });
+});
+
 describe('getPageNavigation — link rel detection', () => {
   it('detects next from <link rel="next">', () => {
     const doc = makeDoc(

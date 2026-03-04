@@ -1,0 +1,23 @@
+@import 'tailwindcss';
+@plugin "daisyui";
+
+@font-face {
+  font-style: normal;
+  font-weight: 100 900;
+  src: url('../fonts/Pixelify-Sans.ttf') format('truetype');
+  font-family: 'Pixelify Sans';
+  font-display: swap;
+}
+
+:host,
+:root {
+  all: initial;
+  font-weight: 400 !important;
+  font-size: 16px !important;
+  font-family: 'Pixelify Sans', system-ui, sans-serif !important;
+  letter-spacing: normal;
+}
+
+body {
+  font-family: 'Pixelify Sans', system-ui, sans-serif;
+}
